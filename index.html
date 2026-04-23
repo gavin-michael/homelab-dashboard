@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Homelab Network Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root { --bg:#080a0f; --bg-card:#10131a; --bg-hover:#161a24; --border:#1a1e2a; --text:#e2e4e9; --dim:#6b7084; --accent:#58a6ff; --green:#3fb950; --green-dim:rgba(63,185,80,0.1); --yellow:#d29922; --red:#f85149; --mono:'IBM Plex Mono',monospace; --sans:'IBM Plex Sans',sans-serif; }
+        *{margin:0;padding:0;box-sizing:border-box}body{font-family:var(--sans);background:var(--bg);color:var(--text);-webkit-font-smoothing:antialiased}
+        .dashboard{max-width:1200px;margin:0 auto;padding:32px 24px}
+        .header{margin-bottom:40px}.header-row{display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:16px}
+        h1{font-size:28px;font-weight:700;letter-spacing:-0.03em}
+        .live-badge{display:inline-flex;align-items:center;gap:8px;font-family:var(--mono);font-size:12px;color:var(--green);background:var(--green-dim);padding:6px 14px;border-radius:20px}
+        .live-badge::before{content:'';width:7px;height:7px;border-radius:50%;background:var(--green);animation:pulse 2s infinite}
+        @keyframes pulse{0%,100%{opacity:1}50%{opacity:0.4}}
+        .subtitle{color:var(--dim);font-size:14px;margin-top:8px}
+
+        .stats-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:12px;margin-bottom:32px}
+        .stat{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:20px}
+        .stat-label{font-family:var(--mono);font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.06em;margin-bottom:6px}
+        .stat-value{font-size:28px;font-weight:700;letter-spacing:-0.02em}
+        .stat-sub{font-size:12px;color:var(--dim);margin-top:4px}
+
+        .section{margin-bottom:32px}
+        .section-title{font-family:var(--mono);font-size:13px;color:var(--accent);letter-spacing:0.04em;margin-bottom:16px;text-transform:uppercase}
+
+        .services-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:10px}
+        .svc{display:flex;align-items:center;gap:12px;background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:14px 16px;transition:border-color 0.15s}
+        .svc:hover{border-color:#2a3040}
+        .svc-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0}
+        .svc-dot.up{background:var(--green);box-shadow:0 0 8px rgba(63,185,80,0.4)}
+        .svc-dot.down{background:var(--red)}
+        .svc-dot.planned{background:var(--yellow)}
+        .svc-info{flex:1;min-width:0}
+        .svc-name{font-size:14px;font-weight:500}
+        .svc-detail{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:2px}
+
+        .vlan-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:10px}
+        .vlan-card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:16px}
+        .vlan-header{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+        .vlan-id{font-family:var(--mono);font-size:18px;font-weight:600}
+        .vlan-name{font-size:13px;font-weight:500}
+        .vlan-detail{font-family:var(--mono);font-size:12px;color:var(--dim);line-height:1.8}
+
+        .topo{background:var(--bg-card);border:1px solid var(--border);border-radius:8px;padding:28px;font-family:var(--mono);font-size:12px;line-height:1.9;white-space:pre;overflow-x:auto;color:var(--dim)}
+        .topo .highlight{color:var(--accent)}
+        .topo .green{color:var(--green)}
+
+        .hw-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}
+        .hw-card{background:var(--bg-card);border:1px solid var(--border);border-radius:6px;padding:16px}
+        .hw-label{font-family:var(--mono);font-size:11px;color:var(--dim);text-transform:uppercase;letter-spacing:0.05em}
+        .hw-value{font-size:15px;font-weight:500;margin-top:4px}
+        .hw-sub{font-size:12px;color:var(--dim);margin-top:2px}
+
+        .storage-bar{height:24px;background:var(--border);border-radius:4px;overflow:hidden;margin:8px 0}
+        .storage-fill{height:100%;border-radius:4px;display:flex;align-items:center;padding:0 10px;font-family:var(--mono);font-size:11px;font-weight:500}
+        .storage-fill.nvme{background:linear-gradient(90deg,#3b82f6,#2563eb);color:#fff}
+        .storage-fill.hdd{background:linear-gradient(90deg,#22c55e,#16a34a);color:#fff}
+
+        .tabs{display:flex;gap:4px;margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:-1px}
+        .tab{font-family:var(--mono);font-size:12px;color:var(--dim);padding:8px 16px;cursor:pointer;border-bottom:2px solid transparent;transition:all 0.15s}
+        .tab:hover{color:var(--text)}
+        .tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+        .tab-content{display:none}.tab-content.active{display:block}
+
+        .footer{margin-top:48px;padding-top:24px;border-top:1px solid var(--border);font-size:12px;color:var(--dim);display:flex;justify-content:space-between;flex-wrap:wrap;gap:8px}
+        .footer a{color:var(--accent);text-decoration:none}
+
+        @media(max-width:640px){h1{font-size:22px}.stat-value{font-size:22px}.dashboard{padding:20px 16px}}
+    </style>
+</head>
+<body>
+<div class="dashboard">
+    <div class="header">
+        <div class="header-row">
+            <h1>Network Dashboard</h1>
+            <span class="live-badge">All Systems Operational</span>
+        </div>
+        <p class="subtitle">Proxmox VE Homelab — 10.0.20.20 — VLAN 20 (Lab)</p>
+    </div>
+
+    <div class="stats-row">
+        <div class="stat"><div class="stat-label">Docker Containers</div><div class="stat-value" style="color:var(--green)">15</div><div class="stat-sub">All running</div></div>
+        <div class="stat"><div class="stat-label">VLANs Active</div><div class="stat-value">4</div><div class="stat-sub">+ 2 planned</div></div>
+        <div class="stat"><div class="stat-label">VM Memory</div><div class="stat-value">18 GB</div><div class="stat-sub">16GB Ubuntu + 2GB OPNsense</div></div>
+        <div class="stat"><div class="stat-label">Storage Used</div><div class="stat-value">46 GB</div><div class="stat-sub">of 232GB allocated</div></div>
+        <div class="stat"><div class="stat-label">Public Endpoints</div><div class="stat-value">2</div><div class="stat-sub">gavinwhite.dev + status</div></div>
+    </div>
+
+    <div class="tabs" id="mainTabs">
+        <div class="tab active" onclick="switchTab('services')">Services</div>
+        <div class="tab" onclick="switchTab('vlans')">VLANs</div>
+        <div class="tab" onclick="switchTab('topology')">Topology</div>
+        <div class="tab" onclick="switchTab('hardware')">Hardware</div>
+        <div class="tab" onclick="switchTab('storage')">Storage</div>
+    </div>
+
+    <div class="tab-content active" id="tab-services">
+        <div class="section">
+            <div class="section-title">Monitoring</div>
+            <div class="services-grid">
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Prometheus</div><div class="svc-detail">:9090 — metrics (30d)</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Grafana</div><div class="svc-detail">:3000 — dashboards</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Loki</div><div class="svc-detail">:3100 — logs (7d)</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Grafana Alloy</div><div class="svc-detail">:12345 — collection agent</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Node Exporter</div><div class="svc-detail">:9100 — host metrics</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">SNMP Exporter</div><div class="svc-detail">:9116 — OPNsense SNMP</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Uptime Kuma</div><div class="svc-detail">:3001 — availability</div></div></div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Services</div>
+            <div class="services-grid">
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Pi-hole</div><div class="svc-detail">:53, :8080 — DNS ad blocking</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Nginx Proxy Manager</div><div class="svc-detail">:80, :443, :81 — reverse proxy</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Cloudflare Tunnel</div><div class="svc-detail">gavinwhite.dev</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Portfolio</div><div class="svc-detail">:8090 — nginx:alpine</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Homepage</div><div class="svc-detail">:3002 — dashboard</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Minecraft</div><div class="svc-detail">:25565 — Monifactory (191 mods)</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Portainer</div><div class="svc-detail">:9000 — container mgmt</div></div></div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">Infrastructure</div>
+            <div class="services-grid">
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">OPNsense</div><div class="svc-detail">10.0.10.1 — firewall/router</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Proxmox VE</div><div class="svc-detail">192.168.0.50:8006</div></div></div>
+                <div class="svc"><div class="svc-dot up"></div><div class="svc-info"><div class="svc-name">Tailscale</div><div class="svc-detail">100.89.129.32 — VPN mesh</div></div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-vlans">
+        <div class="vlan-grid">
+            <div class="vlan-card"><div class="vlan-header"><span class="vlan-id">1</span><div class="svc-dot up" style="width:6px;height:6px"></div></div><div class="vlan-name">Switch Management</div><div class="vlan-detail">192.168.0.0/24<br>Untagged — switch at .239</div></div>
+            <div class="vlan-card"><div class="vlan-header"><span class="vlan-id">10</span><div class="svc-dot up" style="width:6px;height:6px"></div></div><div class="vlan-name">Trusted</div><div class="vlan-detail">10.0.10.0/24<br>GW: 10.0.10.1<br>Full access to all VLANs</div></div>
+            <div class="vlan-card"><div class="vlan-header"><span class="vlan-id">20</span><div class="svc-dot up" style="width:6px;height:6px"></div></div><div class="vlan-name">Lab</div><div class="vlan-detail">10.0.20.0/24<br>GW: 10.0.20.1<br>Internet + Trusted access</div></div>
+            <div class="vlan-card"><div class="vlan-header"><span class="vlan-id">30</span><div class="svc-dot up" style="width:6px;height:6px"></div></div><div class="vlan-name">IoT</div><div class="vlan-detail">10.0.30.0/24<br>GW: 10.0.30.1<br>Internet only — isolated</div></div>
+            <div class="vlan-card"><div class="vlan-header"><span class="vlan-id">40</span><div class="svc-dot up" style="width:6px;height:6px"></div></div><div class="vlan-name">Guest</div><div class="vlan-detail">10.0.40.0/24<br>GW: 10.0.40.1<br>Internet only — isolated</div></div>
+            <div class="vlan-card" style="border-style:dashed"><div class="vlan-header"><span class="vlan-id" style="color:var(--dim)">50</span><div class="svc-dot planned" style="width:6px;height:6px"></div></div><div class="vlan-name" style="color:var(--dim)">Security Cams</div><div class="vlan-detail">10.0.50.0/24<br>Planned</div></div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-topology">
+        <div class="topo"><span class="highlight">Internet</span>
+    |
+<span class="highlight">Cox Router</span> (192.168.0.1)
+    |
+eno1 -> <span class="highlight">vmbr0</span> (WAN Bridge)
+    |
++----------+-----------+
+|                       |
+<span class="highlight">Proxmox</span>            <span class="highlight">OPNsense VM</span>
+192.168.0.50       WAN: DHCP
+                   LAN: VLAN Trunk
+                        |
+             vtnet1 -> <span class="highlight">vmbr1</span> (VLAN-aware)
+                        |
+              enp2s0f0 (I350-AM2)
+                        |
+           <span class="highlight">JGS516PE Managed Switch</span>
+          +------+------+------+
+     Port 1    Port 2   Port 3+
+    (Trunk)  (Access)  (Available)
+  T:10,20,     PVID:10
+  30,40            |
+                <span class="green">Main PC</span>
+             (10.0.10.10)
+
+<span class="green">Ubuntu Server VM</span> (16GB RAM, 4 cores)
+  10.0.20.20 (VLAN 20)
+  scsi0: 32GB NVMe (OS/Docker)
+  scsi1: 200GB HDD  (/mnt/gamedata)
+  +-- 7 monitoring containers
+  +-- 7 service containers
+  +-- Portainer (management)</div>
+    </div>
+
+    <div class="tab-content" id="tab-hardware">
+        <div class="hw-grid">
+            <div class="hw-card"><div class="hw-label">Server</div><div class="hw-value">HP EliteDesk G4 600</div><div class="hw-sub">Intel i5-8500 (6C/6T) · 32GB DDR4</div></div>
+            <div class="hw-card"><div class="hw-label">Hypervisor</div><div class="hw-value">Proxmox VE 9.1.7</div><div class="hw-sub">2 VMs · 18GB allocated · 4+2 cores</div></div>
+            <div class="hw-card"><div class="hw-label">Network Interface</div><div class="hw-value">10Gtek Intel I350-AM2</div><div class="hw-sub">Dual-port PCIe · f0 (LAN trunk) · f1 (unused)</div></div>
+            <div class="hw-card"><div class="hw-label">Switch</div><div class="hw-value">Netgear JGS516PE</div><div class="hw-sub">16-port managed PoE · 802.1Q VLAN · SW 2.6.0.48</div></div>
+            <div class="hw-card"><div class="hw-label">UPS</div><div class="hw-value">CyberPower CP1500AVR</div><div class="hw-sub">Miady 12V 9Ah replacement batteries</div></div>
+            <div class="hw-card"><div class="hw-label">Ubuntu Server VM</div><div class="hw-value">16GB RAM · 4 CPU Cores</div><div class="hw-sub">Ubuntu 24.04 LTS · Docker · 15 containers</div></div>
+        </div>
+    </div>
+
+    <div class="tab-content" id="tab-storage">
+        <div class="section">
+            <div class="section-title">NVMe — Samsung 970 Evo (256GB)</div>
+            <div class="hw-card" style="margin-bottom:12px">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="hw-label">Proxmox OS + local-lvm</span><span style="font-family:var(--mono);font-size:12px;color:var(--dim)">~93% allocated</span></div>
+                <div class="storage-bar"><div class="storage-fill nvme" style="width:93%">238 / 256 GB</div></div>
+                <div style="font-size:12px;color:var(--dim);margin-top:8px">VM 100 boot (32GB) · VM 101 boot (16GB) · Proxmox OS (70GB) · Swap (8GB)</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">HDD — WD 1TB (hdd-storage)</div>
+            <div class="hw-card">
+                <div style="display:flex;justify-content:space-between;margin-bottom:4px"><span class="hw-label">VM data disks + ISOs</span><span style="font-family:var(--mono);font-size:12px;color:var(--dim)">~20% allocated</span></div>
+                <div class="storage-bar"><div class="storage-fill hdd" style="width:20%">200 / 932 GB</div></div>
+                <div style="font-size:12px;color:var(--dim);margin-top:8px">VM 100 scsi1 (200GB) mounted at /mnt/gamedata · Minecraft world data · ~730GB free</div>
+            </div>
+        </div>
+        <div class="section">
+            <div class="section-title">VM 100 Disk Layout</div>
+            <div class="hw-grid">
+                <div class="hw-card"><div class="hw-label">scsi0 — local-lvm (NVMe)</div><div class="hw-value">32GB → 30GB LV</div><div class="hw-sub">OS, Docker engine, configs · ~51% used</div></div>
+                <div class="hw-card"><div class="hw-label">scsi1 — hdd-storage (HDD)</div><div class="hw-value">200GB ext4</div><div class="hw-sub">/mnt/gamedata · Minecraft world data · ~1% used</div></div>
+            </div>
+        </div>
+    </div>
+
+    <div class="footer">
+        <span>Built by <a href="https://gavinwhite.dev">Gavin White</a></span>
+        <span><a href="https://github.com/gavin-michael/HomeLab-Server">GitHub</a> · <a href="https://status.gavinwhite.dev">Status</a></span>
+    </div>
+</div>
+<script>
+function switchTab(name) {
+    document.querySelectorAll('.tab-content').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    document.getElementById('tab-' + name).classList.add('active');
+    event.target.classList.add('active');
+}
+</script>
+</body>
+</html>
